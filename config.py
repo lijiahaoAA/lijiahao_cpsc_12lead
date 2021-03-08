@@ -6,7 +6,7 @@ class Config():
     all_test_300 = 'ECG_test_data_process_3600QRS_300record_new.npy'
     all_test_500 = 'ECG_test_data_process_3600QRS_500record.npy'
 
-    epoch = 120
+    epoch = 60
     momentum = 0.9
     sample_frequency = 500
     normalization_min = -3

@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+np.set_printoptions(threshold=np.inf)
 import scipy.io as sio
 import os
 import config
@@ -133,6 +134,6 @@ def normalization(ECG, max_data, min_data):
     return ECG
 
 #data_process(train_mat)
-data_process(test_mat)
+#data_process(test_mat)
 
 
