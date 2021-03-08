@@ -74,9 +74,9 @@ class QRSDetectorOffline(object):
         self.signal_frequency = frequency  # Set ECG device frequency in samples per second here.
         frequency_scale = frequency/250.0
 
-        self.filter_lowcut = 0.1
-        self.filter_highcut = 15.0
-        self.filter_order = 1
+        self.filter_lowcut = 0.1 # =high-pass，高通滤波器，阻隔了0.1Hz往下的频率
+        self.filter_highcut = 15.0  # =low-pass，低通滤波器，阻隔了15Hz往上的频率
+        self.filter_order = 1 # 滤波器的阶数
 
         self.integration_window = int(15*frequency_scale)  # Change proportionally when adjusting frequency (in samples).
 
@@ -248,6 +248,7 @@ class QRSDetectorOffline(object):
         plot_data(axis=axarr[3], data=self.squared_ecg_measurements, title='Squared ECG measurements')
         plot_data(axis=axarr[4], data=self.integrated_ecg_measurements, title='Integrated ECG measurements with QRS peaks marked (black)')
         plot_points(axis=axarr[4], values=self.integrated_ecg_measurements, indices=self.qrs_peaks_indices)
+        print(len(self.qrs_peaks_indices))
         plot_data(axis=axarr[5], data=self.ecg_data_detected[:, 1], title='Raw ECG measurements with QRS peaks marked (black)')
         plot_points(axis=axarr[5], values=self.ecg_data_detected[:, 1], indices=self.qrs_peaks_indices)
 

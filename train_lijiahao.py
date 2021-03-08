@@ -3,11 +3,13 @@ import time
 
 import numpy as np
 
+from write_to_csv import *
 from scipy.signal import resample
 from sklearn.preprocessing import scale
 from keras.utils import np_utils
 from keras.models import Model,load_model
-from keras.layers import Conv1D,MaxPool1D,Add,Activation,Dropout,BatchNormalization,Input,Lambda,GlobalAveragePooling1D,Dense
+from keras.layers import Conv1D, MaxPool1D, Add, Activation, Dropout, BatchNormalization, Input, Lambda, \
+    GlobalAveragePooling1D, Dense, Bidirectional, CuDNNLSTM, LSTM
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 import matplotlib.pyplot as plt
@@ -26,7 +28,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = '0'
 warnings.filterwarnings("ignore")
 seed = np.random.seed(12)
 config = config.Config()
-input_shape = [1800,12]
+input_shape = [3600,12]
 
 tic = time.time()
 # ==================================工具方法=======================================
@@ -42,10 +44,14 @@ def zeropad_output_shape(input_shape):
 
 def lr_schedule(epoch):
     lr = 0.1
-    if epoch >= 20 and epoch < 40:
+    if epoch >= 25 and epoch < 45:
         lr = 0.01
-    if epoch >= 40:
+    if epoch >= 45 and epoch < 70:
         lr = 0.001
+    if epoch >= 70 and epoch < 100:
+        lr = 0.0001
+    if epoch >= 100:
+        lr = 0.00001
     print('Learning rate: ', lr)
     return lr
 # ==================================数据载入和整理==================================
@@ -53,18 +59,18 @@ target_sig_length = input_shape[0] # 输入信号的长度 1280
 tic = time.time()
 
 # train = np.load('ECG_train_data_process_no_wave.npy')
-train = np.load('ECG_train_data_process_QRS.npy')
+train = np.load('ECG_train_data_normal.npy')
 label = np.load('1Record_Label.npy')-1
 
 train_records, val_records, train_labels, val_labels = train_test_split(
-    train, label, test_size=0.2, random_state=seed)
+    train, label, test_size=0.1, random_state=seed)
 
 # 将标签数据转换为one-hot数据
 train_labels = np_utils.to_categorical(train_labels, num_classes=9)
 val_labels = np_utils.to_categorical(val_labels, num_classes=9)
 
-# train_records = train_records[0:500]
-# train_labels = train_labels[0:500]
+train_records = train_records[500:]
+train_labels = train_labels[500:]
 # val_records = val_records[0:300]
 # val_labels = val_labels[0:300]
 # print(train_records.shape)
@@ -79,12 +85,12 @@ print('Time for data processing--- '+str(toc-tic)+' seconds---')
 def nn_network():
 
     inputs = Input(shape=input_shape, dtype='float32')
-    layer = Conv1D(filters=12, kernel_size=32, strides=1, padding='same', kernel_regularizer=keras.regularizers.l2(0.01))(inputs)
+    layer = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(inputs)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
 
     shortcut = MaxPool1D(pool_size=1)(layer)
-    layer = Conv1D(filters=12, kernel_size=32, strides=1, padding='same', kernel_regularizer=keras.regularizers.l2(0.01))(layer)
+    layer = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
@@ -94,7 +100,7 @@ def nn_network():
     shortcut = MaxPool1D(pool_size=2)(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
-    layer = Conv1D(filters=12, kernel_size=32, strides=2, padding='same',kernel_regularizer=keras.regularizers.l2(0.01))(layer)
+    layer = Conv1D(filters=12, kernel_size=32, strides=2, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
@@ -105,7 +111,7 @@ def nn_network():
     shortcut = Lambda(zeropad, output_shape=zeropad_output_shape)(shortcut)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
-    layer = Conv1D(filters=24, kernel_size=32, strides=1, padding='same', kernel_regularizer=keras.regularizers.l2(0.01))(layer)
+    layer = Conv1D(filters=24, kernel_size=32, strides=1, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
@@ -115,7 +121,7 @@ def nn_network():
     shortcut = MaxPool1D(pool_size=2)(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
-    layer = Conv1D(filters=24, kernel_size=32, strides=2, padding='same', kernel_regularizer=keras.regularizers.l2(0.01))(layer)
+    layer = Conv1D(filters=24, kernel_size=32, strides=2, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
@@ -126,7 +132,7 @@ def nn_network():
     shortcut = Lambda(zeropad, output_shape=zeropad_output_shape)(shortcut)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
-    layer = Conv1D(filters=48, kernel_size=32, strides=1, padding='same', kernel_regularizer=keras.regularizers.l2(0.01))(layer)
+    layer = Conv1D(filters=48, kernel_size=32, strides=1, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
@@ -136,7 +142,7 @@ def nn_network():
     shortcut = MaxPool1D(pool_size=2)(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
-    layer = Conv1D(filters=48, kernel_size=32, strides=2, padding='same', kernel_regularizer=keras.regularizers.l2(0.01))(layer)
+    layer = Conv1D(filters=48, kernel_size=32, strides=2, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
@@ -147,7 +153,7 @@ def nn_network():
     shortcut = Lambda(zeropad, output_shape=zeropad_output_shape)(shortcut)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
-    layer = Conv1D(filters=96, kernel_size=32, strides=1, padding='same', kernel_regularizer=keras.regularizers.l2(0.01))(layer)
+    layer = Conv1D(filters=96, kernel_size=32, strides=1, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
@@ -157,12 +163,102 @@ def nn_network():
     shortcut = MaxPool1D(pool_size=2)(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
-    layer = Conv1D(filters=96, kernel_size=32, strides=2, padding='same', kernel_regularizer=keras.regularizers.l2(0.01))(layer)
+    layer = Conv1D(filters=96, kernel_size=32, strides=2, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
     layer = Conv1D(filters=96, kernel_size=32, strides=1, padding='same')(layer)
-    #layer = Add()([shortcut, layer])
+    layer = Add()([shortcut, layer])
+
+# -----------------第二分支--------------------
+
+    layer1 = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(inputs)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+
+    shortcut = MaxPool1D(pool_size=1)(layer1)
+    layer1 = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Dropout(0.5)(layer1)
+    layer1 = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1= Add()([shortcut, layer1])
+
+    shortcut = MaxPool1D(pool_size=2)(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Conv1D(filters=12, kernel_size=32, strides=2, padding='same')(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Dropout(0.5)(layer1)
+    layer1 = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = Add()([shortcut, layer1])
+
+    shortcut = MaxPool1D(pool_size=1)(layer1)
+    shortcut = Lambda(zeropad, output_shape=zeropad_output_shape)(shortcut)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Conv1D(filters=24, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Dropout(0.5)(layer1)
+    layer1 = Conv1D(filters=24, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = Add()([shortcut, layer1])
+
+    shortcut = MaxPool1D(pool_size=2)(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Conv1D(filters=24, kernel_size=32, strides=2, padding='same')(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Dropout(0.5)(layer1)
+    layer1 = Conv1D(filters=24, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = Add()([shortcut, layer1])
+
+    shortcut = MaxPool1D(pool_size=1)(layer1)
+    shortcut = Lambda(zeropad, output_shape=zeropad_output_shape)(shortcut)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Conv1D(filters=48, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Dropout(0.5)(layer1)
+    layer1 = Conv1D(filters=48, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = Add()([shortcut, layer1])
+
+    shortcut = MaxPool1D(pool_size=2)(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Conv1D(filters=48, kernel_size=32, strides=2, padding='same')(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Dropout(0.5)(layer1)
+    layer1 = Conv1D(filters=48, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = Add()([shortcut, layer1])
+
+    shortcut = MaxPool1D(pool_size=1)(layer1)
+    shortcut = Lambda(zeropad, output_shape=zeropad_output_shape)(shortcut)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Conv1D(filters=96, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Dropout(0.5)(layer1)
+    layer1 = Conv1D(filters=96, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = Add()([shortcut, layer1])
+
+    shortcut = MaxPool1D(pool_size=2)(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Conv1D(filters=96, kernel_size=32, strides=2, padding='same')(layer1)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
+    layer1 = Dropout(0.5)(layer1)
+    layer1 = Conv1D(filters=96, kernel_size=32, strides=1, padding='same')(layer1)
+    layer1 = Add()([shortcut, layer1])
+
+    layer  = Add()([layer,layer1])
+    # # layer = LSTM(10, return_sequences=True)(layer)
 
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
@@ -177,34 +273,40 @@ model = nn_network()
 print(model.summary())
 optimizer = SGD(lr=lr_schedule(0), momentum=config.momentum)
 model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['categorical_accuracy'])
-model_name = 'lijiahao_Net_QRS.h5'
+model_name = 'lijiahao_Net_QRS_normal.h5'
 checkpoint = ModelCheckpoint(filepath=model_name,
                              monitor='val_categorical_accuracy', mode='max',
                              save_best_only='True')
 
 lr_scheduler = LearningRateScheduler(lr_schedule)
 callback_lists = [checkpoint, lr_scheduler]
-H = model.fit(x=train_records, y=train_labels, batch_size=32, epochs=config.epoch,
+H = model.fit(x=train_records, y=train_labels, batch_size=128, epochs=config.epoch,
           verbose=1, validation_data=(val_records,val_labels), callbacks=callback_lists) # verbose=1表示输出进度条记录
 
 # ======================================测试集上评估===============================================
 # 训练好的模型来评估测试集
 from keras.models import load_model
-model = load_model('lijiahao_Net_QRS.h5')
+# model = load_model('lijiahao_Net_QRS.h5')
 # test_records = np.load('ECG_test_data_process_no_wave.npy')
-test_records = np.load('ECG_test_data_process_QRS.npy')
-test_label = np.load('1Record_Label.npy')[0:300]
+test_records = np.load('ECG_test_data_normal_500record.npy')
+test_label = np.load('1Record_Label.npy')[0:500]
 # scores_Test = model.evaluate(TestX,TestY)
 # print("测试集精确度："+str(scores_Test[1]))
 
 predict = model.predict(test_records)
 predict = np.argmax(predict,axis=1)+1
+
 print(predict)
+f=open("predict.txt","w")
+f.write(str(predict))
+f.close()
+
+write_to_csv(predict) # 写入到csv文件中去
 cross_mutrix = pd.crosstab(test_label, predict, rownames=['labels'], colnames=['predict'])
 print(cross_mutrix)
 
 toc = time.time()
-print("总用时："+str(toc-tic))
+print("all time："+str(toc-tic))
 
 # # ==========================================绘图==================================================
 N = np.arange(0, config.epoch)

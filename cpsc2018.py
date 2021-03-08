@@ -10,6 +10,8 @@ import numpy as np
 import scipy.io as sio
 from os.path import basename
 
+import QRSDetectorOffline
+
 '''
 cspc2018_challenge score
 Written by:  Xingyao Wang, Feifei Liu, Chengyu Liu
@@ -32,7 +34,7 @@ def cpsc2018(record_base_path):
     ###########################INFERENCE PART################################
 
     def predict_test(recordpaths):
-        model = load_model('lijiahao_Net_QRS.h5')
+        model = load_model('lijiahao_Net_QRS_shuanglu.h5')
         # prepare input
         Input = data_process(recordpaths)
         results = model.predict(Input)
@@ -46,6 +48,13 @@ def cpsc2018(record_base_path):
             mat = np.array(mat['ECG']['data'][0, 0])
             mat = np.transpose(mat)  # 做转置
             signal = mat
+            qrsdetector = QRSDetectorOffline.QRSDetectorOffline(signal, 500, verbose=False,
+                                                                plot_data=False, show_plot=False)
+            # denoise ECG 对每一导联进行去噪 滤波
+            for i in range(signal.shape[1]):
+                signal[:, i] = qrsdetector.bandpass_filter(signal[:, i], lowcut=0.5, highcut=49.0,
+                                                           signal_freq=500, filter_order=1)
+
             ECG.append(signal)
         # 将所有导联的长度填充为一样的
         ECG = sequence.pad_sequences(ECG, maxlen=1800, dtype='float32', truncating='post')
@@ -65,7 +74,7 @@ def cpsc2018(record_base_path):
         for k, label in enumerate(labels):
             result = int(label + 1)
             record_name = basename(recordpaths[k]).rstrip('.mat')
-            # print(record_name)
+            print(record_name)
             answer = [record_name, result]
             # write result
             writer.writerow(answer)
