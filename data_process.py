@@ -7,6 +7,9 @@ import os
 import config
 from keras.preprocessing import sequence
 import QRSDetectorOffline
+import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
+plt.rcParams['axes.unicode_minus']=False #用来正常显示负号
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = '0'
 config = config.Config()
@@ -132,6 +135,22 @@ def normalization(ECG, max_data, min_data):
     # np.save('ECG_train_data_normal.npy', ECG)
     np.save('ECG_test_data_normal_500record.npy', ECG)
     return ECG
+
+def plot_wave(ECG_qrs, ECG_noqrs, ECG_3):
+    plt.figure()
+    print(len(ECG_qrs.shape))
+    print(len(ECG_noqrs.shape))
+    print(len(ECG_3.shape))
+
+    plt.plot(range(3600), ECG_qrs[0:3600], color="red",label="去噪数据")
+    # .plot(range(3600), ECG_noqrs, color="blue")
+
+    plt.plot(range(3600), ECG_3, color="blue", label="归一化数据")
+    plt.title("去噪数据波形对比归一化到[-3,3]数据波形")
+    plt.xlabel("Time")
+    plt.ylabel("Voltage")
+    plt.legend(loc="best")
+    plt.show()
 
 #data_process(train_mat)
 #data_process(test_mat)

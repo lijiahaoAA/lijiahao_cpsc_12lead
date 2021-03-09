@@ -85,12 +85,12 @@ print('Time for data processing--- '+str(toc-tic)+' seconds---')
 def nn_network():
 
     inputs = Input(shape=input_shape, dtype='float32')
-    layer = Conv1D(filters=12, kernel_size=16, strides=1, padding='same')(inputs)
+    layer = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(inputs)
     layer = BatchNormalization()(layer)
-    layer_inputs = Activation('relu')(layer)
+    layer= Activation('relu')(layer)
 
-    shortcut = MaxPool1D(pool_size=1)(layer_inputs)
-    layer = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(layer_inputs)
+    shortcut = MaxPool1D(pool_size=1)(layer)
+    layer = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(layer)
     layer = BatchNormalization()(layer)
     layer = Activation('relu')(layer)
     layer = Dropout(0.5)(layer)
@@ -172,12 +172,12 @@ def nn_network():
 
 # -----------------第二分支--------------------
 
-    # layer1 = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(inputs)
-    # layer1 = BatchNormalization()(layer1)
-    # layer1 = Activation('relu')(layer1)
+    layer1 = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(inputs)
+    layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('relu')(layer1)
 
-    shortcut = MaxPool1D(pool_size=1)(layer_inputs)
-    layer1 = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(layer_inputs)
+    shortcut = MaxPool1D(pool_size=1)(layer1)
+    layer1 = Conv1D(filters=12, kernel_size=32, strides=1, padding='same')(layer1)
     layer1 = BatchNormalization()(layer1)
     layer1 = Activation('relu')(layer1)
     layer1 = Dropout(0.5)(layer1)
